@@ -9,6 +9,8 @@
 #include "imgui-SFML.h"
 #include <SFML/Graphics.hpp>
 
+enum State {Idle, BubbleSort, SelectionSort};
+
 // Returns a random integer from [min, max] inclusive
 int GetRandomInt(int min, int max)
 {
@@ -16,15 +18,14 @@ int GetRandomInt(int min, int max)
     return (rand() % diff) + min;
 }
 
-// An optimized version of Bubble Sort
-void BubbleSort(std::vector<int>& arr, int sortingSpeed, bool& bShouldContinue)
+void PerformBubbleSort(std::vector<int>& arr, int sortingSpeed, State& currentState)
 {
     int i, j;
     int numberOfSwapsDone;
 
     if (arr.size() <= 1)
     {
-        bShouldContinue = false;
+        currentState = Idle;
         return;
     }
 
@@ -45,13 +46,54 @@ void BubbleSort(std::vector<int>& arr, int sortingSpeed, bool& bShouldContinue)
         }
         
         /* Only continue bubble sort if we swapped, else it's sorted */
-        bShouldContinue = numberOfSwapsDone != 0;
+        if (numberOfSwapsDone == 0)
+        {
+            currentState = Idle;
+        }
         break;
+    }
+}
+
+void PerformSelectionSort(std::vector<int>& arr, int sortingSpeed, State& currentState)
+{
+    int i, j, min_idx;
+
+    int maxSwaps = (sortingSpeed / 100) + 1;
+
+    int swapsDone = 0;
+    for (i = 0; i < arr.size(); ++i) 
+    {
+
+        min_idx = i;
+        for (j = i + 1; j < arr.size(); j++) 
+        {
+            if (arr[j] < arr[min_idx])
+                min_idx = j;
+        }
+
+        if (min_idx != i)
+        {
+            std::swap(arr[min_idx], arr[i]);
+            swapsDone++;
+            if (swapsDone >= maxSwaps)
+            {
+                break;
+            }
+        }
+            
+    }
+
+    if (swapsDone == 0)
+    {
+        currentState = Idle;
     }
 }
 
 int main(int argc, char* argv[])
 {
+    /* Initialize state */
+    State currentState = State::Idle;
+
     /* Initialize random seed: */
     srand(time(NULL));
 
@@ -61,6 +103,7 @@ int main(int argc, char* argv[])
     int sortingSpeed = 20;
 
     bool bDoingBubbleSort = false;
+    bool bDoingSelecitonSort = false;
 
     int ARRAY_SIZE = 200;
 
@@ -113,7 +156,7 @@ int main(int argc, char* argv[])
         ImGui::Begin("Sorting Algorithms");
         std::string elementsText = "Elements: " + std::to_string(values.size());
         ImGui::Text(elementsText.c_str());
-        ImGui::SliderInt("Array Size", &ARRAY_SIZE, 1, 4000);
+        ImGui::SliderInt("Array Size", &ARRAY_SIZE, 1, 2000);
         if (ImGui::Button("Regenerate Data"))
         {
             values.resize(ARRAY_SIZE);
@@ -136,7 +179,12 @@ int main(int argc, char* argv[])
                 shapes[i]->setPosition(sf::Vector2f(ELEMENT_WIDTH * i, WINDOW_HEIGHT - values[i]));
             }
         }
-        if (ImGui::Button("Apply White"))
+
+        ImGui::NewLine();
+        ImGui::NewLine();
+
+        ImGui::Text("Apply Color");
+        if (ImGui::Button("White"))
         {
         
             for (auto& shape : shapes)
@@ -144,8 +192,15 @@ int main(int argc, char* argv[])
                 shape->setFillColor(sf::Color::White);
             }
         }
+        if (ImGui::Button("Green"))
+        {
 
-        if (ImGui::Button("Apply Random Color"))
+            for (auto& shape : shapes)
+            {
+                shape->setFillColor(sf::Color::Green);
+            }
+        }
+        if (ImGui::Button("Random Color"))
         {
             for (auto& shape : shapes)
             {
@@ -160,27 +215,38 @@ int main(int argc, char* argv[])
         ImGui::NewLine();
 
         ImGui::Text("Sorting");
-        ImGui::SliderInt("Speed", &sortingSpeed, 1, 100000);
+        ImGui::SliderInt("Speed", &sortingSpeed, 1, 2000);
 
         ImGui::NewLine();
         ImGui::NewLine();
-        if (!bDoingBubbleSort)
+        if (currentState == State::Idle)
         {
             ImGui::Text("Sorting Algorithms");
             
             if (ImGui::Button("Bubble Sort"))
             {
-                bDoingBubbleSort = true;
+                currentState = State::BubbleSort;
+            }
+            if (ImGui::Button("Selection Sort"))
+            {
+                currentState = State::SelectionSort;
             }
         }
         
         ImGui::End();
 
-        if (bDoingBubbleSort)
+        if (currentState == State::BubbleSort)
         {
-            BubbleSort(values, sortingSpeed, bDoingBubbleSort);
+            PerformBubbleSort(values, sortingSpeed, currentState);
+        }
+        else if (currentState == State::SelectionSort)
+        {
+            PerformSelectionSort(values, sortingSpeed, currentState);
+        }
 
-            /* Update positions and sizes*/
+        if (currentState != State::Idle)
+        {
+            /* Update positions and sizes */
             for (int i = 0; i < values.size(); ++i)
             {
                 shapes[i]->setSize(sf::Vector2f(ELEMENT_WIDTH, values[i]));
